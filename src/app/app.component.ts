@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { Observable, of, timer } from 'rxjs';
-import { filter, take, map, switchMap, tap, catchError } from 'rxjs/operators';
+import { filter, take, map } from 'rxjs/operators';
 
 interface AccountInfo {
   account_number: string | null;
@@ -15,7 +15,7 @@ interface AccountInfo {
   template: `
     <section
       class="container"
-      *ngIf="!!accountInfo?.account_number; else loading"
+      *ngIf="accountInfo$ | async as accountInfo; else loading"
     >
       <h1>Account {{ accountInfo.account_number }}</h1>
     </section>
@@ -25,7 +25,7 @@ interface AccountInfo {
   `,
   styles: [],
 })
-export class AppComponent implements OnInit {
+export class AppComponent {
   config: AccountInfo = {
     account_number: null,
     account_type: null,
@@ -33,31 +33,20 @@ export class AppComponent implements OnInit {
     account_status: null,
   };
 
-  accountInfo!: AccountInfo;
-
-  ngOnInit(): void {
-    this.getAccountInfo()
-      .pipe(
-        filter((acc: AccountInfo) => {
-          console.log(acc);
-          let isTrue = !!acc.account_status;
-          return isTrue;
-        }),
-        take(1),
-        map((acc: AccountInfo) => {
-          this.accountInfo = {
-            ...acc,
-            account_number: this.addAccountSegment(acc?.account_number!),
-          };
-          console.table(this.accountInfo);
-          return this.accountInfo;
-        }),
-        tap(() => {
-          console.log('done');
-        })
-      )
-      .subscribe();
-  }
+  accountInfo$: Observable<AccountInfo> = this.getAccountInfo().pipe(
+    filter((acc: AccountInfo) => {
+      const isTrue = !!acc.account_status;
+      return isTrue;
+    }),
+    take(1),
+    map((acc: AccountInfo) => {
+      acc = {
+        ...acc,
+        account_number: this.addAccountSegment(acc?.account_number!),
+      };
+      return acc;
+    })
+  );
 
   private addAccountSegment(accountNumber: string): string {
     return `#${accountNumber}-prd`;
@@ -83,8 +72,9 @@ export class AppComponent implements OnInit {
 
     return seq.pipe(
       map((lapse) => {
-        const newObj = Object.assign(this.config, updates[lapse]);
-        console.log(newObj);
+        const newObj: AccountInfo = Object.assign(this.config, updates[lapse]);
+        console.log(newObj.account_number);
+
         return newObj;
       }),
       take(updates.length)
